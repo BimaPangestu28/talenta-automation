@@ -12,7 +12,9 @@ SSO_LOGIN_URL = (
 )
 SSO_EMAIL_INPUT = "input[name='user[email]']"
 SSO_PASSWORD_INPUT = "input[name='user[password]']"
-SSO_SUBMIT_BUTTON = "button[type='submit']"
+# Scope to the form that contains the email input. This avoids matching
+# a standalone "Sign in with Google" button that may also be a submit button.
+SSO_SUBMIT_BUTTON = "form:has(input[name='user[email]']) button[type='submit']"
 SSO_ERROR_BANNER = ".alert-danger, [role='alert']"
 SSO_IS_TWO_STEP = False  # set True if email first, password on next screen
 
