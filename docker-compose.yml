@@ -1,7 +1,9 @@
 services:
   talenta-bot:
+    # On VPS: `docker compose pull` gets prebuilt image from GHCR.
+    # On dev: `docker compose build` builds locally and tags with this name.
+    image: ghcr.io/bimapangestu28/talenta-automation:latest
     build: .
-    image: talenta-bot:latest
     container_name: talenta-bot
     restart: unless-stopped
     env_file: .env

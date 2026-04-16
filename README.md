@@ -10,14 +10,17 @@ on weekdays within configurable randomised windows, with Telegram notifications.
 - Mekari account without 2FA
 - Telegram bot token + chat id
 
-## First-time setup
+## First-time setup (VPS, using prebuilt image from GHCR)
 
 ```bash
-git clone <repo> ~/talenta-automation
+git clone git@github.com:BimaPangestu28/talenta-automation.git ~/talenta-automation
 cd ~/talenta-automation
 cp .env.example .env && $EDITOR .env
 mkdir -p state && chmod 700 state
 chmod 600 .env
+
+# Pull prebuilt image (published by CI on every master push)
+docker compose pull
 
 # One-time: warm up session
 docker compose run --rm talenta-bot python -m talenta_bot login
@@ -26,6 +29,16 @@ docker compose run --rm talenta-bot python -m talenta_bot login
 docker compose up -d
 docker compose logs -f talenta-bot   # verify supercronic output
 ```
+
+## Updating
+
+```bash
+git pull
+docker compose pull          # grab fresh image from GHCR
+docker compose up -d         # recreate container on new image
+```
+
+If you prefer to build locally instead of pulling, use `docker compose build`.
 
 ## Selectors
 
