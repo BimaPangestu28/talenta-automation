@@ -203,12 +203,63 @@ def clock_out_cmd(
 
 
 @app.command("login")
-def login_cmd() -> None:
-    """Force login and persist storage_state. Useful for first-time setup."""
+def login_cmd(
+    interactive: bool = typer.Option(
+        True,
+        "--interactive/--auto",
+        help=(
+            "Interactive: launch visible browser for manual login (needed for Google "
+            "OAuth, 2FA, or any flow beyond plain email+password). Auto: try email+"
+            "password auto-fill against Mekari SSO (legacy — mostly broken)."
+        ),
+    ),
+) -> None:
+    """First-time login. Saves state/storage_state.json for later headless reuse."""
     settings = _load_settings()
-    with playwright_page(settings) as (page, _ctx):
-        logger.info("logged in at %s — storage_state will persist on exit", page.url)
+    if interactive:
+        _interactive_login(settings)
+    else:
+        with playwright_page(settings) as (page, _ctx):
+            logger.info("logged in at %s — storage_state will persist on exit", page.url)
     raise typer.Exit(0)
+
+
+def _interactive_login(settings: Settings) -> None:
+    """Launch a visible browser and wait until the user reaches hr.talenta.co."""
+    from playwright.sync_api import sync_playwright
+
+    from talenta_bot import selectors
+    from talenta_bot.session import DEFAULT_UA, _storage_state_path
+
+    state_path = _storage_state_path(settings.state_dir)
+    settings.state_dir.mkdir(parents=True, exist_ok=True)
+
+    print(
+        "Opening a browser. Complete login manually (Google OAuth, 2FA, whatever).\n"
+        "The session will be saved once you reach hr.talenta.co.\n"
+        "Timeout: 5 minutes."
+    )
+
+    with sync_playwright() as pw:
+        # Always visible — interactive login does not use headless.
+        browser = pw.chromium.launch(headless=False)
+        context = browser.new_context(
+            locale="id-ID",
+            timezone_id=settings.timezone,
+            viewport={"width": 1280, "height": 800},
+            user_agent=DEFAULT_UA,
+        )
+        page = context.new_page()
+        page.goto(selectors.SSO_LOGIN_URL)
+        try:
+            page.wait_for_url("**/hr.talenta.co/**", timeout=300_000)
+        except Exception as exc:
+            browser.close()
+            raise SystemExit(f"Did not reach hr.talenta.co within 5 min: {exc}") from exc
+
+        context.storage_state(path=str(state_path))
+        browser.close()
+        print(f"Session saved to {state_path}")
 
 
 if __name__ == "__main__":

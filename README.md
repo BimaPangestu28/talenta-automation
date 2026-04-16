@@ -26,13 +26,57 @@ echo "$GHCR_TOKEN" | docker login ghcr.io -u BimaPangestu28 --password-stdin
 # Pull prebuilt image (published by CI on every master push)
 docker compose pull
 
-# One-time: warm up session
-docker compose run --rm talenta-bot python -m talenta_bot login
+# One-time: interactive login (see section below)
+# After that you will have state/storage_state.json.
 
 # Start scheduler
 docker compose up -d
 docker compose logs -f talenta-bot   # verify supercronic output
 ```
+
+## First-time login (interactive, required once)
+
+Automated password auto-fill fails for accounts using Google OAuth, 2FA, or
+any Mekari flow beyond plain email+password. The reliable approach is to
+log in manually once in a visible browser; Playwright saves the session to
+`state/storage_state.json`, and every scheduled run afterwards reuses it.
+
+### Option A — inside Docker with WSLg or X11 (WSL, Linux desktop)
+
+```bash
+xhost +local:                        # allow container to talk to display
+docker run --rm -it \
+  -v "$(pwd)/state:/app/state" \
+  --env-file .env \
+  -e DISPLAY=$DISPLAY \
+  -v /tmp/.X11-unix:/tmp/.X11-unix \
+  --entrypoint "" \
+  ghcr.io/bimapangestu28/talenta-automation:latest \
+  python -m talenta_bot login
+```
+
+A Chromium window opens. Complete the login (Google OAuth, 2FA, whatever).
+Once the URL reaches `hr.talenta.co`, the command saves session and exits.
+
+### Option B — on the host (no Docker GUI needed)
+
+Install Playwright system deps then run the package natively:
+
+```bash
+sudo apt install -y libnspr4 libnss3 libasound2t64        # or libasound2 on older Ubuntu
+uv pip install -e ".[dev]"
+.venv/bin/playwright install chromium
+HEADLESS=false .venv/bin/python -m talenta_bot login
+```
+
+Same outcome: browser opens, you log in, session is captured to `state/storage_state.json`.
+
+### Re-login later
+
+Mekari sessions eventually expire (or you can bust them by deleting
+`state/storage_state.json`). When that happens, scheduled runs fail with a
+`LoginFailed` Telegram message. Just re-run the same interactive login command
+above.
 
 ## Updating
 

@@ -124,6 +124,13 @@ def _login_flow(page: Page, email: str, password: str) -> None:
         try:
             page.wait_for_url(selectors.DASHBOARD_URL_PATTERN, timeout=30_000)
         except PWTimeoutError as exc:
+            if "accounts.google.com" in page.url or "oauth" in page.url.lower():
+                raise LoginFailed(
+                    "redirected to external OAuth provider (Google/SSO). "
+                    "Auto-fill cannot handle this — run "
+                    "`python -m talenta_bot login --interactive` once to "
+                    "capture a session manually."
+                ) from exc
             err_text = _safe_text(page, selectors.SSO_ERROR_BANNER)
             raise LoginFailed(err_text or "did not reach dashboard after login") from exc
     except PWTimeoutError as exc:
