@@ -19,6 +19,10 @@ cp .env.example .env && $EDITOR .env
 mkdir -p state && chmod 700 state
 chmod 600 .env
 
+# Auth to GHCR (image is private by default). Create a PAT at
+# https://github.com/settings/tokens with `read:packages` scope.
+echo "$GHCR_TOKEN" | docker login ghcr.io -u BimaPangestu28 --password-stdin
+
 # Pull prebuilt image (published by CI on every master push)
 docker compose pull
 
