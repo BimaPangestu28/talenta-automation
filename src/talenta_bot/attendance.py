@@ -1,0 +1,78 @@
+from __future__ import annotations
+
+import logging
+
+from playwright.sync_api import Page
+from playwright.sync_api import TimeoutError as PWTimeoutError
+
+from talenta_bot.errors import ClockActionFailed, SelectorNotFound
+from talenta_bot.selectors import (
+    ACTION_ERROR_TOAST,
+    ACTION_SUCCESS_TOAST,
+    CLOCK_IN_BUTTON,
+    CLOCK_IN_TIME_DISPLAY,
+    CLOCK_OUT_BUTTON,
+    CLOCK_OUT_TIME_DISPLAY,
+    LIVE_ATTENDANCE_URL,
+)
+
+logger = logging.getLogger(__name__)
+
+WAIT_SELECTOR_MS = 15_000
+WAIT_CONFIRM_MS = 15_000
+
+
+def _goto_live_attendance(page: Page) -> None:
+    page.goto(LIVE_ATTENDANCE_URL, wait_until="domcontentloaded", timeout=20_000)
+
+
+def _time_text(page: Page, selector: str) -> str | None:
+    try:
+        el = page.wait_for_selector(selector, timeout=2_000)
+        if not el:
+            return None
+        text = el.inner_text().strip()
+        return text or None
+    except PWTimeoutError:
+        return None
+
+
+def already_clocked_in_today(page: Page) -> str | None:
+    """Return the clock-in time (HH:MM) if already recorded, else None."""
+    _goto_live_attendance(page)
+    return _time_text(page, CLOCK_IN_TIME_DISPLAY)
+
+
+def already_clocked_out_today(page: Page) -> str | None:
+    _goto_live_attendance(page)
+    return _time_text(page, CLOCK_OUT_TIME_DISPLAY)
+
+
+def _click_and_confirm(page: Page, button_selector: str, action_name: str) -> None:
+    try:
+        page.wait_for_selector(button_selector, timeout=WAIT_SELECTOR_MS)
+    except PWTimeoutError as exc:
+        raise SelectorNotFound(
+            f"{action_name}: button {button_selector!r} not found"
+        ) from exc
+
+    page.click(button_selector)
+
+    try:
+        page.wait_for_selector(
+            f"{ACTION_SUCCESS_TOAST}, {CLOCK_IN_TIME_DISPLAY}, {CLOCK_OUT_TIME_DISPLAY}",
+            timeout=WAIT_CONFIRM_MS,
+        )
+    except PWTimeoutError as exc:
+        err = _time_text(page, ACTION_ERROR_TOAST) or "no confirmation within 15s"
+        raise ClockActionFailed(f"{action_name}: {err}") from exc
+
+
+def click_clock_in(page: Page) -> None:
+    logger.info("clicking Clock In")
+    _click_and_confirm(page, CLOCK_IN_BUTTON, "Clock In")
+
+
+def click_clock_out(page: Page) -> None:
+    logger.info("clicking Clock Out")
+    _click_and_confirm(page, CLOCK_OUT_BUTTON, "Clock Out")
