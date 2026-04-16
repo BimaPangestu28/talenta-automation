@@ -59,11 +59,16 @@ class MockTalenta:
             if self.clock_in_recorded
             else ""
         )
+        click_script = (
+            "fetch('/api/clock-in',{method:'POST'})"
+            ".then(()=>document.body.innerHTML+="
+            "'<div class=toast-success>ok</div>')"
+        )
         return web.Response(
             text=f"""
             <html><body>
               <div data-testid='today-attendance-card'>{time_html}</div>
-              <button onclick="fetch('/api/clock-in',{{method:'POST'}}).then(()=>document.body.innerHTML+='<div class=toast-success>ok</div>')">Clock In</button>
+              <button onclick="{click_script}">Clock In</button>
             </body></html>
             """,
             content_type="text/html",

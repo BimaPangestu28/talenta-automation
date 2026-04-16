@@ -5,7 +5,6 @@ import httpx
 
 from talenta_bot.notifier import TelegramNotifier, build_message
 
-
 TS = datetime(2026, 4, 16, 8, 7, 12, tzinfo=ZoneInfo("Asia/Jakarta"))
 
 

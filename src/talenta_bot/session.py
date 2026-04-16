@@ -3,20 +3,18 @@ from __future__ import annotations
 import logging
 import math
 import random
+from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Iterator
 
 from playwright.sync_api import (
     BrowserContext,
     Page,
+    sync_playwright,
 )
 from playwright.sync_api import (
     TimeoutError as PWTimeoutError,
-)
-from playwright.sync_api import (
-    sync_playwright,
 )
 
 from talenta_bot.config import Settings

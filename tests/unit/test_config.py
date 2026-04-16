@@ -3,7 +3,6 @@ from pydantic import ValidationError
 
 from talenta_bot.config import Settings
 
-
 VALID_ENV = {
     "MEKARI_EMAIL": "u@example.com",
     "MEKARI_PASSWORD": "pw",
