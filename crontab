@@ -1,0 +1,7 @@
+# m h dom mon dow  command
+# Primary clock-in + 30-min backstop (Mon-Fri)
+  0  8   *   *   1-5   cd /app && python -m talenta_bot clock-in
+  30 8   *   *   1-5   cd /app && python -m talenta_bot clock-in
+# Primary clock-out + 30-min backstop
+  0  17  *   *   1-5   cd /app && python -m talenta_bot clock-out
+  30 17  *   *   1-5   cd /app && python -m talenta_bot clock-out

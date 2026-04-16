@@ -2,7 +2,7 @@
 name = "talenta-bot"
 version = "0.1.0"
 description = "Automated clock-in/out for Talenta (Mekari HR)"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "playwright>=1.49,<2.0",
     "pydantic>=2.6,<3.0",
@@ -32,7 +32,7 @@ packages = ["src/talenta_bot"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM"]

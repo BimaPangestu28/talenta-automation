@@ -1,0 +1,16 @@
+services:
+  talenta-bot:
+    build: .
+    image: talenta-bot:latest
+    container_name: talenta-bot
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      TZ: Asia/Jakarta
+    volumes:
+      - ./state:/app/state
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
