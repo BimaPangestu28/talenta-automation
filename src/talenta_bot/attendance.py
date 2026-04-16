@@ -5,16 +5,8 @@ import logging
 from playwright.sync_api import Page
 from playwright.sync_api import TimeoutError as PWTimeoutError
 
+from talenta_bot import selectors
 from talenta_bot.errors import ClockActionFailed, SelectorNotFound
-from talenta_bot.selectors import (
-    ACTION_ERROR_TOAST,
-    ACTION_SUCCESS_TOAST,
-    CLOCK_IN_BUTTON,
-    CLOCK_IN_TIME_DISPLAY,
-    CLOCK_OUT_BUTTON,
-    CLOCK_OUT_TIME_DISPLAY,
-    LIVE_ATTENDANCE_URL,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +15,7 @@ WAIT_CONFIRM_MS = 15_000
 
 
 def _goto_live_attendance(page: Page) -> None:
-    page.goto(LIVE_ATTENDANCE_URL, wait_until="domcontentloaded", timeout=20_000)
+    page.goto(selectors.LIVE_ATTENDANCE_URL, wait_until="domcontentloaded", timeout=20_000)
 
 
 def _time_text(page: Page, selector: str) -> str | None:
@@ -40,12 +32,12 @@ def _time_text(page: Page, selector: str) -> str | None:
 def already_clocked_in_today(page: Page) -> str | None:
     """Return the clock-in time (HH:MM) if already recorded, else None."""
     _goto_live_attendance(page)
-    return _time_text(page, CLOCK_IN_TIME_DISPLAY)
+    return _time_text(page, selectors.CLOCK_IN_TIME_DISPLAY)
 
 
 def already_clocked_out_today(page: Page) -> str | None:
     _goto_live_attendance(page)
-    return _time_text(page, CLOCK_OUT_TIME_DISPLAY)
+    return _time_text(page, selectors.CLOCK_OUT_TIME_DISPLAY)
 
 
 def _click_and_confirm(page: Page, button_selector: str, action_name: str) -> None:
@@ -60,19 +52,20 @@ def _click_and_confirm(page: Page, button_selector: str, action_name: str) -> No
 
     try:
         page.wait_for_selector(
-            f"{ACTION_SUCCESS_TOAST}, {CLOCK_IN_TIME_DISPLAY}, {CLOCK_OUT_TIME_DISPLAY}",
+            f"{selectors.ACTION_SUCCESS_TOAST}, {selectors.CLOCK_IN_TIME_DISPLAY}, "
+            f"{selectors.CLOCK_OUT_TIME_DISPLAY}",
             timeout=WAIT_CONFIRM_MS,
         )
     except PWTimeoutError as exc:
-        err = _time_text(page, ACTION_ERROR_TOAST) or "no confirmation within 15s"
+        err = _time_text(page, selectors.ACTION_ERROR_TOAST) or "no confirmation within 15s"
         raise ClockActionFailed(f"{action_name}: {err}") from exc
 
 
 def click_clock_in(page: Page) -> None:
     logger.info("clicking Clock In")
-    _click_and_confirm(page, CLOCK_IN_BUTTON, "Clock In")
+    _click_and_confirm(page, selectors.CLOCK_IN_BUTTON, "Clock In")
 
 
 def click_clock_out(page: Page) -> None:
     logger.info("clicking Clock Out")
-    _click_and_confirm(page, CLOCK_OUT_BUTTON, "Clock Out")
+    _click_and_confirm(page, selectors.CLOCK_OUT_BUTTON, "Clock Out")

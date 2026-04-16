@@ -17,18 +17,9 @@ from playwright.sync_api import (
     TimeoutError as PWTimeoutError,
 )
 
+from talenta_bot import selectors
 from talenta_bot.config import Settings
 from talenta_bot.errors import LoginFailed, TalentaDown
-from talenta_bot.selectors import (
-    DASHBOARD_URL_PATTERN,
-    SSO_EMAIL_INPUT,
-    SSO_ERROR_BANNER,
-    SSO_IS_TWO_STEP,
-    SSO_LOGIN_URL,
-    SSO_PASSWORD_INPUT,
-    SSO_SUBMIT_BUTTON,
-    TALENTA_BASE_URL,
-)
 
 logger = logging.getLogger(__name__)
 
@@ -101,9 +92,9 @@ def playwright_page(settings: Settings) -> Iterator[tuple[Page, BrowserContext]]
 def _ensure_logged_in(page: Page, settings: Settings) -> None:
     """Goto dashboard; if redirected to SSO, run login flow and persist state."""
     try:
-        page.goto(TALENTA_BASE_URL, timeout=20_000, wait_until="domcontentloaded")
+        page.goto(selectors.TALENTA_BASE_URL, timeout=20_000, wait_until="domcontentloaded")
     except PWTimeoutError as exc:
-        raise TalentaDown(f"goto {TALENTA_BASE_URL} timed out") from exc
+        raise TalentaDown(f"goto {selectors.TALENTA_BASE_URL} timed out") from exc
 
     if _looks_like_login_page(page):
         _login_flow(page, settings.mekari_email, settings.mekari_password)
@@ -118,22 +109,22 @@ def _login_flow(page: Page, email: str, password: str) -> None:
     logger.info("running login flow")
     try:
         if "account.mekari.com" not in page.url:
-            page.goto(SSO_LOGIN_URL, timeout=20_000)
+            page.goto(selectors.SSO_LOGIN_URL, timeout=20_000)
 
-        page.wait_for_selector(SSO_EMAIL_INPUT, timeout=10_000)
-        page.fill(SSO_EMAIL_INPUT, email)
+        page.wait_for_selector(selectors.SSO_EMAIL_INPUT, timeout=10_000)
+        page.fill(selectors.SSO_EMAIL_INPUT, email)
 
-        if SSO_IS_TWO_STEP:
-            page.click(SSO_SUBMIT_BUTTON)
-            page.wait_for_selector(SSO_PASSWORD_INPUT, timeout=10_000)
+        if selectors.SSO_IS_TWO_STEP:
+            page.click(selectors.SSO_SUBMIT_BUTTON)
+            page.wait_for_selector(selectors.SSO_PASSWORD_INPUT, timeout=10_000)
 
-        page.fill(SSO_PASSWORD_INPUT, password)
-        page.click(SSO_SUBMIT_BUTTON)
+        page.fill(selectors.SSO_PASSWORD_INPUT, password)
+        page.click(selectors.SSO_SUBMIT_BUTTON)
 
         try:
-            page.wait_for_url(DASHBOARD_URL_PATTERN, timeout=30_000)
+            page.wait_for_url(selectors.DASHBOARD_URL_PATTERN, timeout=30_000)
         except PWTimeoutError as exc:
-            err_text = _safe_text(page, SSO_ERROR_BANNER)
+            err_text = _safe_text(page, selectors.SSO_ERROR_BANNER)
             raise LoginFailed(err_text or "did not reach dashboard after login") from exc
     except PWTimeoutError as exc:
         raise LoginFailed(f"login step timed out: {exc}") from exc
