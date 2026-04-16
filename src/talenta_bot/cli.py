@@ -11,10 +11,12 @@ from playwright.sync_api import TimeoutError as PWTimeoutError
 from pydantic import ValidationError
 
 from talenta_bot import attendance as att
+from talenta_bot import selectors
 from talenta_bot.config import Settings
 from talenta_bot.errors import (
     ConfigError,
     LoginFailed,
+    SelectorNotFound,
     TalentaBotError,
     TalentaDown,
 )
@@ -141,7 +143,21 @@ def _run_action(
                     return 0
 
                 if dry_run:
-                    logger.info("dry-run: would click %s button", display_name)
+                    button_selector = (
+                        selectors.CLOCK_IN_BUTTON
+                        if action == "clock-in"
+                        else selectors.CLOCK_OUT_BUTTON
+                    )
+                    try:
+                        page.wait_for_selector(button_selector, timeout=15_000)
+                    except PWTimeoutError as exc:
+                        raise SelectorNotFound(
+                            f"{display_name}: button {button_selector!r} not found"
+                        ) from exc
+                    logger.info(
+                        "dry-run: %s button is reachable — would click here in real run",
+                        display_name,
+                    )
                     return 0
 
                 click_fn(page)
