@@ -205,12 +205,13 @@ def clock_out_cmd(
 @app.command("login")
 def login_cmd(
     interactive: bool = typer.Option(
-        True,
+        False,
         "--interactive/--auto",
         help=(
-            "Interactive: launch visible browser for manual login (needed for Google "
-            "OAuth, 2FA, or any flow beyond plain email+password). Auto: try email+"
-            "password auto-fill against Mekari SSO (legacy — mostly broken)."
+            "Auto (default): fill email+password and submit the Mekari form. "
+            "Interactive: launch a visible browser for manual login — needed only "
+            "if the account requires Google OAuth, 2FA, SAML, or any flow beyond "
+            "plain email+password."
         ),
     ),
 ) -> None:

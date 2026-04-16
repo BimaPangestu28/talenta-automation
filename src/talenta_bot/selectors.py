@@ -10,13 +10,14 @@ SSO_LOGIN_URL = (
     "https://account.mekari.com/users/sign_in"
     "?client_id=TAL-73645&return_to=L2F1dGg_Y2xpZW50X2lkPVRBTC03MzY0NSZyZXNwb25zZV90eXBlPWNvZGUmc2NvcGU9c3NvOnByb2ZpbGU%3D"
 )
-SSO_EMAIL_INPUT = "input[name='user[email]']"
-SSO_PASSWORD_INPUT = "input[name='user[password]']"
-# Scope to the form that contains the email input. This avoids matching
-# a standalone "Sign in with Google" button that may also be a submit button.
-SSO_SUBMIT_BUTTON = "form:has(input[name='user[email]']) button[type='submit']"
-SSO_ERROR_BANNER = ".alert-danger, [role='alert']"
-SSO_IS_TWO_STEP = False  # set True if email first, password on next screen
+SSO_EMAIL_INPUT = "#user_email"
+SSO_PASSWORD_INPUT = "#user_password"
+# The form uses <input type="submit" id="new-signin-button">. Targeting by
+# ID avoids matching the separate "Sign in dengan Google" <button> that sits
+# in its own OAuth form below the native email/password form.
+SSO_SUBMIT_BUTTON = "#new-signin-button"
+SSO_ERROR_BANNER = "#alert-danger-fe .alert-body p, .alert-danger"
+SSO_IS_TWO_STEP = False  # Mekari form takes email+password in a single step
 
 # --- Talenta dashboard ---
 TALENTA_BASE_URL = "https://hr.talenta.co"
