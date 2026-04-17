@@ -48,17 +48,35 @@ def _click_and_confirm(page: Page, button_selector: str, action_name: str) -> No
             f"{action_name}: button {button_selector!r} not found"
         ) from exc
 
-    page.click(button_selector)
+    # Log every network request while the action is in progress — helps
+    # debug silent backend failures (geolocation rejects, 4xx, etc.)
+    api_calls: list[str] = []
 
+    def on_response(resp):
+        if "talenta.co" in resp.url or "mekari.com" in resp.url:
+            if any(
+                kw in resp.url for kw in ("clock", "attendance", "check-in", "check-out")
+            ):
+                api_calls.append(f"{resp.status} {resp.request.method} {resp.url}")
+
+    page.on("response", on_response)
     try:
-        page.wait_for_selector(
-            f"{selectors.ACTION_SUCCESS_TOAST}, {selectors.CLOCK_IN_TIME_DISPLAY}, "
-            f"{selectors.CLOCK_OUT_TIME_DISPLAY}",
-            timeout=WAIT_CONFIRM_MS,
-        )
-    except PWTimeoutError as exc:
-        err = _time_text(page, selectors.ACTION_ERROR_TOAST) or "no confirmation within 15s"
-        raise ClockActionFailed(f"{action_name}: {err}") from exc
+        page.click(button_selector)
+        try:
+            page.wait_for_selector(
+                f"{selectors.ACTION_SUCCESS_TOAST}, {selectors.CLOCK_IN_TIME_DISPLAY}, "
+                f"{selectors.CLOCK_OUT_TIME_DISPLAY}",
+                timeout=WAIT_CONFIRM_MS,
+            )
+        except PWTimeoutError as exc:
+            err = _time_text(page, selectors.ACTION_ERROR_TOAST) or "no confirmation within 15s"
+            if api_calls:
+                err = f"{err}; calls={api_calls}"
+            else:
+                err = f"{err}; no attendance API call detected"
+            raise ClockActionFailed(f"{action_name}: {err}") from exc
+    finally:
+        page.remove_listener("response", on_response)
 
 
 def click_clock_in(page: Page) -> None:
