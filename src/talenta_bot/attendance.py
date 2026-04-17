@@ -40,6 +40,9 @@ def already_clocked_out_today(page: Page) -> str | None:
     return _time_text(page, selectors.CLOCK_OUT_TIME_DISPLAY)
 
 
+ATTENDANCE_CLOCKS_MARKER = "attendance_clocks"
+
+
 def _click_and_confirm(page: Page, button_selector: str, action_name: str) -> None:
     try:
         page.wait_for_selector(button_selector, timeout=WAIT_SELECTOR_MS)
@@ -48,34 +51,38 @@ def _click_and_confirm(page: Page, button_selector: str, action_name: str) -> No
             f"{action_name}: button {button_selector!r} not found"
         ) from exc
 
-    # Log every network request while the action is in progress — helps
-    # debug silent backend failures (geolocation rejects, 4xx, etc.)
-    api_calls: list[str] = []
+    # Success is determined by the Talenta backend, not by DOM sniffing:
+    # a POST to .../attendance_clocks returning 2xx is the ground truth
+    # that the record was created.
+    api_status: dict[str, int] = {}
 
     def on_response(resp):
-        is_talenta_host = "talenta.co" in resp.url or "mekari.com" in resp.url
-        is_attendance_endpoint = any(
-            kw in resp.url for kw in ("clock", "attendance", "check-in", "check-out")
-        )
-        if is_talenta_host and is_attendance_endpoint:
-            api_calls.append(f"{resp.status} {resp.request.method} {resp.url}")
+        if ATTENDANCE_CLOCKS_MARKER in resp.url and resp.request.method == "POST":
+            api_status["status"] = resp.status
+            api_status["url"] = resp.url
 
     page.on("response", on_response)
     try:
         page.click(button_selector)
-        try:
-            page.wait_for_selector(
-                f"{selectors.ACTION_SUCCESS_TOAST}, {selectors.CLOCK_IN_TIME_DISPLAY}, "
-                f"{selectors.CLOCK_OUT_TIME_DISPLAY}",
-                timeout=WAIT_CONFIRM_MS,
-            )
-        except PWTimeoutError as exc:
-            err = _time_text(page, selectors.ACTION_ERROR_TOAST) or "no confirmation within 15s"
-            if api_calls:
-                err = f"{err}; calls={api_calls}"
-            else:
-                err = f"{err}; no attendance API call detected"
-            raise ClockActionFailed(f"{action_name}: {err}") from exc
+
+        # Poll for up to WAIT_CONFIRM_MS for the attendance_clocks response.
+        deadline_ms = WAIT_CONFIRM_MS
+        elapsed = 0
+        poll_interval = 250
+        while elapsed < deadline_ms:
+            if "status" in api_status:
+                break
+            page.wait_for_timeout(poll_interval)
+            elapsed += poll_interval
+
+        if "status" not in api_status:
+            err = _time_text(page, selectors.ACTION_ERROR_TOAST) or "no attendance API call"
+            raise ClockActionFailed(f"{action_name}: {err}")
+
+        status = api_status["status"]
+        if status >= 400:
+            raise ClockActionFailed(f"{action_name}: API returned {status}")
+        # status is 2xx — record created.
     finally:
         page.remove_listener("response", on_response)
 
