@@ -22,4 +22,7 @@ COPY crontab ./crontab
 RUN mkdir -p /app/state && chown -R pwuser:pwuser /app
 USER pwuser
 
-CMD ["supercronic", "/app/crontab"]
+# -no-reap: let the container init (tini via `init: true` in compose)
+# handle zombie reaping instead of supercronic. Supercronic's own reaper
+# fork+execs /proc/self/exe every minute which fails in some runtimes.
+CMD ["supercronic", "-no-reap", "/app/crontab"]
