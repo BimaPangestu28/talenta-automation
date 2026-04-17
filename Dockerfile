@@ -5,6 +5,16 @@ ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     TZ=Asia/Jakarta
 
+# System tzdata + /etc/localtime — supercronic is a Go binary and needs
+# /usr/share/zoneinfo/$TZ to honor the TZ env var; the Python tzdata wheel
+# does not help it. Without this, supercronic silently falls back to UTC
+# and cron expressions fire on the wrong wall-clock time.
+RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends tzdata \
+ && ln -sf /usr/share/zoneinfo/Asia/Jakarta /etc/localtime \
+ && echo "Asia/Jakarta" > /etc/timezone \
+ && rm -rf /var/lib/apt/lists/*
+
 # supercronic — cron alternative for containers (logs to stdout, no forking)
 ARG SUPERCRONIC_VERSION=v0.2.33
 RUN curl -fsSLo /usr/local/bin/supercronic \
