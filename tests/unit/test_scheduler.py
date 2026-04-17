@@ -25,21 +25,35 @@ def test_now_in_tz_returns_local():
         assert dt.tzinfo is not None
 
 
-def test_random_sleep_bounds():
-    samples = [random_sleep_seconds("08:00", "08:15", "Asia/Jakarta") for _ in range(500)]
-    assert all(s >= 0 for s in samples)
-    assert all(s <= 15 * 60 for s in samples)
-
-
-def test_random_sleep_uses_remaining_window_if_now_inside_window():
+def test_random_sleep_bounded_to_window_when_inside():
+    # 08:10 WIB, window 08:00-08:15 → remaining 5 min
     with freeze_time("2026-04-16T01:10:00+00:00"):
         samples = [
-            random_sleep_seconds("08:00", "08:15", "Asia/Jakarta") for _ in range(200)
+            random_sleep_seconds("08:00", "08:15", "Asia/Jakarta") for _ in range(500)
         ]
-        assert all(s <= 5 * 60 for s in samples), max(samples)
+        assert all(0 <= s <= 5 * 60 for s in samples), max(samples)
+
+
+def test_random_sleep_waits_until_window_opens_when_called_early():
+    # Cron fires at 08:00 WIB but window is 09:00-09:15.
+    # Must sleep at least 60 min (until window start) and at most 75 min.
+    with freeze_time("2026-04-17T01:00:00+00:00"):  # 08:00 WIB
+        samples = [
+            random_sleep_seconds("09:00", "09:15", "Asia/Jakarta") for _ in range(500)
+        ]
+        assert all(60 * 60 <= s <= 75 * 60 for s in samples), (min(samples), max(samples))
+
+
+def test_random_sleep_within_whole_window_when_called_at_window_start():
+    # Exactly at window start: random across the whole window.
+    with freeze_time("2026-04-17T02:00:00+00:00"):  # 09:00 WIB
+        samples = [
+            random_sleep_seconds("09:00", "09:15", "Asia/Jakarta") for _ in range(500)
+        ]
+        assert all(0 <= s <= 15 * 60 for s in samples), max(samples)
 
 
 def test_random_sleep_zero_if_now_past_window():
-    with freeze_time("2026-04-16T02:00:00+00:00"):
+    with freeze_time("2026-04-16T02:00:00+00:00"):  # 09:00 WIB, window 08:00-08:15
         s = random_sleep_seconds("08:00", "08:15", "Asia/Jakarta")
         assert s == 0
