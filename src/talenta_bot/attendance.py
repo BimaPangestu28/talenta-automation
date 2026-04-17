@@ -53,11 +53,12 @@ def _click_and_confirm(page: Page, button_selector: str, action_name: str) -> No
     api_calls: list[str] = []
 
     def on_response(resp):
-        if "talenta.co" in resp.url or "mekari.com" in resp.url:
-            if any(
-                kw in resp.url for kw in ("clock", "attendance", "check-in", "check-out")
-            ):
-                api_calls.append(f"{resp.status} {resp.request.method} {resp.url}")
+        is_talenta_host = "talenta.co" in resp.url or "mekari.com" in resp.url
+        is_attendance_endpoint = any(
+            kw in resp.url for kw in ("clock", "attendance", "check-in", "check-out")
+        )
+        if is_talenta_host and is_attendance_endpoint:
+            api_calls.append(f"{resp.status} {resp.request.method} {resp.url}")
 
     page.on("response", on_response)
     try:
