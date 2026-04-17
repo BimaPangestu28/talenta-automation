@@ -30,6 +30,71 @@ DEFAULT_UA = (
     "(KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36"
 )
 
+# JS injected on every page load to mask headless-Chromium fingerprints
+# that servers (Talenta's verify-bot endpoint, Cloudflare bot checks, etc.)
+# use to detect automation. Applied AFTER context creation via add_init_script.
+_STEALTH_INIT_JS = """
+// Hide navigator.webdriver — the single strongest bot signal.
+Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+
+// Plugins array should be non-empty on real Chrome.
+Object.defineProperty(navigator, 'plugins', {
+  get: () => [
+    { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
+    { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
+    { name: 'Native Client', filename: 'internal-nacl-plugin' },
+  ],
+});
+
+// Languages array should match Accept-Language.
+Object.defineProperty(navigator, 'languages', { get: () => ['id-ID', 'id', 'en-US', 'en'] });
+
+// window.chrome object exists on real Chrome; absent in HeadlessChrome.
+if (!window.chrome) {
+  window.chrome = { runtime: {}, loadTimes: () => {}, csi: () => {} };
+}
+
+// userAgentData leaks "HeadlessChrome" via getHighEntropyValues. Replace.
+if (navigator.userAgentData) {
+  const fakeBrands = [
+    { brand: 'Not?A_Brand', version: '99' },
+    { brand: 'Google Chrome', version: '130' },
+    { brand: 'Chromium', version: '130' },
+  ];
+  const fakeUAData = {
+    brands: fakeBrands,
+    mobile: false,
+    platform: 'Linux',
+    getHighEntropyValues: (keys) => Promise.resolve({
+      architecture: 'x86', bitness: '64', brands: fakeBrands, fullVersionList: [
+        { brand: 'Not?A_Brand', version: '99.0.0.0' },
+        { brand: 'Google Chrome', version: '130.0.0.0' },
+        { brand: 'Chromium', version: '130.0.0.0' },
+      ],
+      mobile: false, model: '', platform: 'Linux', platformVersion: '6.6.0',
+      uaFullVersion: '130.0.0.0', wow64: false,
+    }),
+    toJSON: () => ({ brands: fakeBrands, mobile: false, platform: 'Linux' }),
+  };
+  Object.defineProperty(navigator, 'userAgentData', { get: () => fakeUAData });
+}
+
+// Permissions API: notifications should reflect Notification.permission.
+const origQuery = navigator.permissions && navigator.permissions.query;
+if (origQuery) {
+  navigator.permissions.query = (p) =>
+    p && p.name === 'notifications'
+      ? Promise.resolve({ state: Notification.permission })
+      : origQuery(p);
+}
+"""
+
+# Launch args that also reduce automation signals.
+_STEALTH_LAUNCH_ARGS = [
+    "--disable-blink-features=AutomationControlled",
+    "--disable-features=IsolateOrigins,site-per-process",
+]
+
 
 def jittered_coords(lat: float, lon: float, max_meters: float) -> tuple[float, float]:
     """Return (lat, lon) offset by a uniform-random vector of length ≤ max_meters."""
@@ -77,8 +142,9 @@ def playwright_page(settings: Settings) -> Iterator[tuple[Page, BrowserContext]]
         context_kwargs["storage_state"] = str(state_path)
 
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(headless=settings.headless)
+        browser = pw.chromium.launch(headless=settings.headless, args=_STEALTH_LAUNCH_ARGS)
         context = browser.new_context(**context_kwargs)
+        context.add_init_script(_STEALTH_INIT_JS)
         page = context.new_page()
         try:
             _ensure_logged_in(page, settings)

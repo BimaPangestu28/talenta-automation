@@ -62,6 +62,9 @@ class TelegramNotifier:
             return False
 
     def send_photo(self, caption: str, photo_path: Path) -> bool:
+        # Telegram sendPhoto caption hard limit is 1024 chars. Leave a margin.
+        if len(caption) > 1000:
+            caption = caption[:997] + "..."
         try:
             with photo_path.open("rb") as fh:
                 r = httpx.post(
